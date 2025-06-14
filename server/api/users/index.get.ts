@@ -1,4 +1,4 @@
-import { prisma } from '../../database'
+import { prisma } from "../../database";
 
 export default defineEventHandler(async (event) => {
   if (getMethod(event) !== "GET") {
@@ -11,16 +11,21 @@ export default defineEventHandler(async (event) => {
   try {
     const users = await prisma.user.findMany({
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: "desc",
+      },
     });
+
+    // ユーザー情報から文字列配列を作成（例：ユーザー名を使用）
+    const strings = users.map(
+      (user) => user.name || user.email || `User ${user.id}`
+    );
 
     console.log(`✅ ユーザーリストを返しています (${users.length}件)`);
 
     return {
       success: true,
-      users: users,
-      count: users.length,
+      strings: strings, // users ではなく strings を返す
+      count: strings.length,
       timestamp: new Date().toISOString(),
       message: "ユーザーリストの取得に成功しました",
     };
@@ -32,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: false,
-      users: [],
+      strings: [],
       count: 0,
       error: "ユーザーAPIでエラーが発生しました",
       details:
