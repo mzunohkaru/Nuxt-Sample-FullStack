@@ -1,0 +1,20 @@
+{
+  "name": "fullstack-project",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "setup": "npm install && npm run setup --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^7.6.0",
+    "lerna": "^6.4.1"
+  }
+}
