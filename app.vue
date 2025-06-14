@@ -70,7 +70,7 @@ const fetchStrings = async () => {
   error.value = "";
 
   try {
-    const response = await $fetch<ApiResponse>("/api/twitter-test-get");
+    const response = await $fetch<ApiResponse>("/api/users");
 
     if (response.success) {
       strings.value = response.strings;
