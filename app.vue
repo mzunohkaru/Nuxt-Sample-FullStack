@@ -48,7 +48,7 @@
         <div class="flex justify-between items-center mb-6">
           <h2 class="text-xl font-semibold text-gray-700">投稿一覧</h2>
           <button
-            @click="fetchPosts"
+            @click="fetchPosts()"
             :disabled="loading"
             class="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-md transition-colors"
           >
@@ -163,25 +163,13 @@
 </template>
 
 <script setup lang="ts">
-interface Post {
-  id: number;
-  content: string;
-  userId?: number;
-  user?: { name: string };
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface PostsResponse {
-  success: boolean;
-  posts: Post[];
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalPosts: number;
-    hasMore: boolean;
-  };
-}
+import type {
+  Post,
+  CreatePostResponse,
+  UpdatePostResponse,
+  DeletePostResponse,
+} from "~/types/api";
+import type { GetPostsResponse } from "~/types/api";
 
 const posts = ref<Post[]>([]);
 const newPostContent = ref<string>("");
@@ -207,7 +195,7 @@ const fetchPosts = async (page: number = 1) => {
   error.value = "";
 
   try {
-    const response = await $fetch<PostsResponse>(`/api/posts?page=${page}`);
+    const response = await $fetch<GetPostsResponse>(`/api/posts?page=${page}`);
 
     if (response.success) {
       posts.value = response.posts;
@@ -230,7 +218,7 @@ const createPost = async () => {
   error.value = "";
 
   try {
-    const response = await $fetch("/api/posts", {
+    const response = await $fetch<CreatePostResponse>("/api/posts", {
       method: "POST",
       body: {
         content: newPostContent.value,
@@ -268,13 +256,16 @@ const updatePost = async () => {
   error.value = "";
 
   try {
-    const response = await $fetch(`/api/posts/${editingPost.value.id}`, {
-      method: "PUT",
-      body: {
-        content: editContent.value,
-        userId: currentUserId.value,
-      },
-    });
+    const response = await $fetch<UpdatePostResponse>(
+      `/api/posts/${editingPost.value.id}`,
+      {
+        method: "PUT",
+        body: {
+          content: editContent.value,
+          userId: currentUserId.value,
+        },
+      }
+    );
 
     if (response.success) {
       cancelEdit();
@@ -295,7 +286,7 @@ const deletePost = async (postId: number) => {
   error.value = "";
 
   try {
-    const response = await $fetch(`/api/posts/${postId}`, {
+    const response = await $fetch<DeletePostResponse>(`/api/posts/${postId}`, {
       method: "DELETE",
       body: {
         userId: currentUserId.value,
