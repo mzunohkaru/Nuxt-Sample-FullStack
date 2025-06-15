@@ -14,7 +14,7 @@ const mockCreateError = vi.fn((err) => {
 });
 
 vi.mock('h3', async (importOriginal) => {
-  const original = await importOriginalстья<typeof import('h3')>();
+  const original = await importOriginal<typeof import('h3')>();
   return {
     ...original,
     getMethod: mockGetMethod,
@@ -56,7 +56,7 @@ describe('GET /api/users', () => {
 
       const result = await userGetHandler(mockEvent as H3Event);
 
-      expect(getMethod).toHaveBeenCalledWith(mockEvent);
+      expect(mockGetMethod).toHaveBeenCalledWith(mockEvent);
       expect(mockPrisma.user.findMany).toHaveBeenCalledWith({ orderBy: { createdAt: 'desc' } });
       expect(result).toEqual({
         success: true,
@@ -121,7 +121,7 @@ describe('GET /api/users', () => {
       await expect(userGetHandler(mockEvent as H3Event))
         .rejects.toThrow('Method Not Allowed');
 
-      expect(createError).toHaveBeenCalledWith({
+      expect(mockCreateError).toHaveBeenCalledWith({
         statusCode: 405,
         statusMessage: 'Method Not Allowed',
       });
