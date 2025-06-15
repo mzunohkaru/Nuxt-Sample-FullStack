@@ -9,16 +9,28 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const id = getRouterParam(event, 'id');
-    
-    const userId = parseInt(id || '', 10);
-    if (isNaN(userId) || userId <= 0) {
-      return {
-        success: false,
-        user: null,
-        error: "無効なユーザーIDです",
-        timestamp: new Date().toISOString(),
-      };
+    const id = getRouterParam(event, "id");
+
+    if (!id) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ユーザーIDが指定されていません",
+      });
+    }
+
+    const userId = parseInt(id, 10);
+    if (isNaN(userId)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ユーザーIDは数値である必要があります",
+      });
+    }
+
+    if (userId <= 0) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: "ユーザーIDは正の値である必要があります",
+      });
     }
 
     const user = await prisma.user.findUnique({
@@ -26,16 +38,14 @@ export default defineEventHandler(async (event) => {
     });
 
     if (!user) {
-      return {
-        success: false,
-        user: null,
-        error: "指定されたユーザーが見つかりません",
-        timestamp: new Date().toISOString(),
-      };
+      throw createError({
+        statusCode: 404,
+        statusMessage: "指定されたユーザーが見つかりません",
+      });
     }
 
     console.log(`✅ ユーザー情報を返しています (ID: ${userId})`);
-    
+
     return {
       success: true,
       user: {
@@ -48,18 +58,26 @@ export default defineEventHandler(async (event) => {
       timestamp: new Date().toISOString(),
       message: "ユーザー情報の取得に成功しました",
     };
-
   } catch (error) {
-    console.error(`❌ User API Error (ID: ${getRouterParam(event, 'id')}):`, error);
+    console.error(
+      `❌ User API Error (ID: ${getRouterParam(event, "id")}):`,
+      error
+    );
 
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    if (error && typeof error === "object" && "statusCode" in error) {
+      throw error;
+    }
 
-    return {
-      success: false,
-      user: null,
-      error: "ユーザーAPIでエラーが発生しました",
-      details: process.env.NODE_ENV === "development" ? errorMessage : undefined,
-      timestamp: new Date().toISOString(),
-    };
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    throw createError({
+      statusCode: 500,
+      statusMessage: "ユーザーAPIでエラーが発生しました",
+      data:
+        process.env.NODE_ENV === "development"
+          ? { details: errorMessage }
+          : undefined,
+    });
   }
 });
