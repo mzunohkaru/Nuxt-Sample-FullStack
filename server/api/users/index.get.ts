@@ -24,8 +24,14 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      strings: strings, // users ではなく strings を返す
-      count: strings.length,
+      users: users.map((user) => ({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: user.updatedAt.toISOString(),
+      })),
+      count: users.length,
       timestamp: new Date().toISOString(),
       message: "ユーザーリストの取得に成功しました",
     };
@@ -35,13 +41,14 @@ export default defineEventHandler(async (event) => {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
-    return {
-      success: false,
-      strings: [],
-      count: 0,
-      error: "ユーザーAPIでエラーが発生しました",
-      details:
-        process.env.NODE_ENV === "development" ? errorMessage : undefined,
-    };
+    // データベースエラーは500ステータスコードで返す
+    throw createError({
+      statusCode: 500,
+      statusMessage: "ユーザーリスト取得でエラーが発生しました",
+      data:
+        process.env.NODE_ENV === "development"
+          ? { details: errorMessage }
+          : undefined,
+    });
   }
 });
