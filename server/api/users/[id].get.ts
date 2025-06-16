@@ -1,7 +1,7 @@
 import { prisma } from "../../database";
 
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== "GET") {
+  if (event.method !== "GET") {
     throw createError({
       statusCode: 405,
       statusMessage: "Method Not Allowed",
