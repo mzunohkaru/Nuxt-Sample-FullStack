@@ -1,47 +1,48 @@
-import { z } from 'zod';
+import { z } from "zod";
+import {
+  createPostRequestSchema,
+  updatePostRequestSchema,
+  postParamsSchema,
+  paginationQuerySchema,
+  postResponseSchema,
+  postsListResponseSchema,
+  deletePostResponseSchema,
+} from "../../types/schemas";
 
-export const createPostSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Content is required')
-    .max(120, 'Content must be 120 characters or less')
-    .trim(),
-  userId: z.number().optional(),
-});
+// 既存のスキーマをre-export（後方互換性のため）
+export const createPostSchema = createPostRequestSchema;
+export const updatePostSchema = updatePostRequestSchema;
+export const getPostsQuerySchema = paginationQuerySchema;
+export const postIdSchema = postParamsSchema;
 
-export const updatePostSchema = z.object({
-  content: z
-    .string()
-    .min(1, 'Content is required')
-    .max(120, 'Content must be 120 characters or less')
-    .trim()
-    .optional(),
-  userId: z.number().optional(),
-});
+// 新しいスキーマをre-export
+export const postRequestSchema = createPostRequestSchema;
+export const postUpdateSchema = updatePostRequestSchema;
+export {
+  postResponseSchema,
+  postsListResponseSchema,
+  deletePostResponseSchema,
+};
 
-export const getPostsQuerySchema = z.object({
-  page: z
-    .string()
-    .optional()
-    .default('1')
-    .transform((val) => parseInt(val))
-    .refine((val) => val > 0, 'Page must be a positive number'),
-  limit: z
-    .string()
-    .optional()
-    .default('20')
-    .transform((val) => parseInt(val))
-    .refine((val) => val > 0 && val <= 100, 'Limit must be between 1 and 100'),
-});
+// バリデーション関数
+export const validateCreatePostRequest = (data: unknown) =>
+  createPostRequestSchema.parse(data);
+export const validateUpdatePostRequest = (data: unknown) =>
+  updatePostRequestSchema.parse(data);
+export const validatePostParams = (data: unknown) =>
+  postParamsSchema.parse(data);
+export const validatePostsQuery = (data: unknown) =>
+  paginationQuerySchema.parse(data);
 
-export const postIdSchema = z.object({
-  id: z
-    .string()
-    .transform((val) => parseInt(val))
-    .refine((val) => !isNaN(val) && val > 0, 'Invalid post ID'),
-});
-
+// 型のre-export（後方互換性のため）
 export type CreatePostInput = z.infer<typeof createPostSchema>;
 export type UpdatePostInput = z.infer<typeof updatePostSchema>;
 export type GetPostsQuery = z.infer<typeof getPostsQuerySchema>;
 export type PostIdParams = z.infer<typeof postIdSchema>;
+
+// 新しい型のexport
+export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
+export type UpdatePostRequest = z.infer<typeof updatePostRequestSchema>;
+export type PostParams = z.infer<typeof postParamsSchema>;
+export type PostsListResponse = z.infer<typeof postsListResponseSchema>;
+export type DeletePostResponse = z.infer<typeof deletePostResponseSchema>;
