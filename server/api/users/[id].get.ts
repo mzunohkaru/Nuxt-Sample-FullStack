@@ -1,52 +1,56 @@
 import { prisma } from "../../database";
+import { userIdSchema } from '~/server/schemas/user';
+import { 
+  createSuccessResponse, 
+  handleApiError, 
+  createValidationError, 
+  createNotFoundError, 
+  createMethodNotAllowedError 
+} from '~/server/utils/errorHandler';
+import Logger from '~/server/utils/logger';
+import { apiRateLimit } from '~/server/middleware/rateLimit';
 
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== "GET") {
-    throw createError({
-      statusCode: 405,
-      statusMessage: "Method Not Allowed",
-    });
-  }
-
+  const startTime = Date.now();
+  
   try {
-    const id = getRouterParam(event, "id");
+    Logger.logApiRequest(event);
 
-    if (!id) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "ユーザーIDが指定されていません",
-      });
+    if (getMethod(event) !== "GET") {
+      throw createMethodNotAllowedError("Only GET method is allowed");
     }
 
-    const userId = parseInt(id, 10);
-    if (isNaN(userId)) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "ユーザーIDは数値である必要があります",
-      });
+    // Apply rate limiting
+    await apiRateLimit(event);
+
+    // Validate route parameter
+    const params = { id: getRouterParam(event, 'id') };
+    const paramValidation = userIdSchema.safeParse(params);
+    if (!paramValidation.success) {
+      throw createValidationError(
+        'Invalid user ID',
+        paramValidation.error.errors
+      );
     }
 
-    if (userId <= 0) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: "ユーザーIDは正の値である必要があります",
-      });
-    }
+    const { id } = paramValidation.data;
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     if (!user) {
-      throw createError({
-        statusCode: 404,
-        statusMessage: "指定されたユーザーが見つかりません",
-      });
+      throw createNotFoundError("User not found");
     }
 
-    console.log(`✅ ユーザー情報を返しています (ID: ${userId})`);
-
-    return {
+    const response = {
       success: true,
       user: {
         id: user.id,
@@ -56,28 +60,26 @@ export default defineEventHandler(async (event) => {
         updatedAt: user.updatedAt.toISOString(),
       },
       timestamp: new Date().toISOString(),
-      message: "ユーザー情報の取得に成功しました",
     };
+
+    const duration = Date.now() - startTime;
+    Logger.logApiResponse(event, 200, duration, { userId: id });
+
+    return response;
+
   } catch (error) {
-    console.error(
-      `❌ User API Error (ID: ${getRouterParam(event, "id")}):`,
-      error
-    );
-
-    if (error && typeof error === "object" && "statusCode" in error) {
-      throw error;
-    }
-
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-
+    const duration = Date.now() - startTime;
+    Logger.logError(event, error);
+    Logger.logApiResponse(event, error instanceof Error ? 400 : 500, duration);
+    
+    const errorResponse = handleApiError(error);
+    
     throw createError({
-      statusCode: 500,
-      statusMessage: "ユーザーAPIでエラーが発生しました",
-      data:
-        process.env.NODE_ENV === "development"
-          ? { details: errorMessage }
-          : undefined,
+      statusCode: error instanceof Error && 'statusCode' in error 
+        ? (error as any).statusCode 
+        : 500,
+      statusMessage: errorResponse.error.message,
+      data: errorResponse,
     });
   }
 });

@@ -1,28 +1,56 @@
 import { prisma } from "../../database";
+import { getUsersQuerySchema } from '~/server/schemas/user';
+import { createSuccessResponse, handleApiError, createValidationError, createMethodNotAllowedError } from '~/server/utils/errorHandler';
+import Logger from '~/server/utils/logger';
+import { apiRateLimit } from '~/server/middleware/rateLimit';
 
 export default defineEventHandler(async (event) => {
-  if (getMethod(event) !== "GET") {
-    throw createError({
-      statusCode: 405,
-      statusMessage: "Method Not Allowed",
-    });
-  }
-
+  const startTime = Date.now();
+  
   try {
-    const users = await prisma.user.findMany({
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+    Logger.logApiRequest(event);
 
-    // ユーザー情報から文字列配列を作成（例：ユーザー名を使用）
-    const strings = users.map(
-      (user) => user.name || user.email || `User ${user.id}`
-    );
+    if (getMethod(event) !== "GET") {
+      throw createMethodNotAllowedError("Only GET method is allowed");
+    }
 
-    console.log(`✅ ユーザーリストを返しています (${users.length}件)`);
+    // Apply rate limiting
+    await apiRateLimit(event);
 
-    return {
+    const query = getQuery(event);
+    
+    const validation = getUsersQuerySchema.safeParse(query);
+    if (!validation.success) {
+      throw createValidationError(
+        'Invalid query parameters',
+        validation.error.errors
+      );
+    }
+
+    const { page, limit } = validation.data;
+    const skip = (page - 1) * limit;
+
+    const [users, totalUsers] = await Promise.all([
+      prisma.user.findMany({
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take: limit
+      }),
+      prisma.user.count()
+    ]);
+
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    const response = {
       success: true,
       users: users.map((user) => ({
         id: user.id,
@@ -31,24 +59,37 @@ export default defineEventHandler(async (event) => {
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString(),
       })),
-      count: users.length,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalUsers,
+        hasMore: page < totalPages
+      },
       timestamp: new Date().toISOString(),
-      message: "ユーザーリストの取得に成功しました",
     };
+
+    const duration = Date.now() - startTime;
+    Logger.logApiResponse(event, 200, duration, { 
+      usersCount: users.length,
+      page,
+      totalUsers 
+    });
+
+    return response;
+
   } catch (error) {
-    console.error("❌ Users API Error:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-
-    // データベースエラーは500ステータスコードで返す
+    const duration = Date.now() - startTime;
+    Logger.logError(event, error);
+    Logger.logApiResponse(event, error instanceof Error ? 400 : 500, duration);
+    
+    const errorResponse = handleApiError(error);
+    
     throw createError({
-      statusCode: 500,
-      statusMessage: "ユーザーリスト取得でエラーが発生しました",
-      data:
-        process.env.NODE_ENV === "development"
-          ? { details: errorMessage }
-          : undefined,
+      statusCode: error instanceof Error && 'statusCode' in error 
+        ? (error as any).statusCode 
+        : 500,
+      statusMessage: errorResponse.error.message,
+      data: errorResponse,
     });
   }
 });
