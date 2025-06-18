@@ -1,48 +1,52 @@
-import winston from 'winston';
+import winston from "winston";
 
-const logLevel = process.env.LOG_LEVEL || 'info';
-const isDevelopment = process.env.NODE_ENV === 'development';
+const logLevel = process.env.LOG_LEVEL || "info";
+const isDevelopment = process.env.NODE_ENV === "development";
 
 const logger = winston.createLogger({
   level: logLevel,
   format: winston.format.combine(
     winston.format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss'
+      format: "YYYY-MM-DD HH:mm:ss",
     }),
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'nuxt-api' },
+  defaultMeta: { service: "nuxt-api" },
   transports: [
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
+    new winston.transports.File({
+      filename: "logs/error.log",
+      level: "error",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
-      )
+      ),
     }),
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
+    new winston.transports.File({
+      filename: "logs/combined.log",
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.json()
-      )
-    })
+      ),
+    }),
   ],
 });
 
 if (isDevelopment) {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple(),
-      winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
-        return `${timestamp} [${level}]: ${message} ${metaStr}`;
-      })
-    )
-  }));
+  logger.add(
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple(),
+        winston.format.printf(({ timestamp, level, message, ...meta }) => {
+          const metaStr = Object.keys(meta).length
+            ? JSON.stringify(meta, null, 2)
+            : "";
+          return `${timestamp} [${level}]: ${message} ${metaStr}`;
+        })
+      ),
+    })
+  );
 }
 
 export interface LogContext {
@@ -65,10 +69,11 @@ export class Logger {
   }
 
   static error(message: string, error?: Error | unknown, context?: LogContext) {
-    const errorInfo = error instanceof Error 
-      ? { error: error.message, stack: error.stack }
-      : { error };
-    
+    const errorInfo =
+      error instanceof Error
+        ? { error: error.message, stack: error.stack }
+        : { error };
+
     logger.error(message, { ...context, ...errorInfo });
   }
 
@@ -83,33 +88,33 @@ export class Logger {
   static logApiRequest(event: any, additionalContext?: LogContext) {
     const method = getMethod(event);
     const url = getRequestURL(event);
-    const userAgent = getHeader(event, 'user-agent');
+    const userAgent = getHeader(event, "user-agent");
     const ip = getClientIP(event);
-    
+
     this.http(`${method} ${url.pathname}`, {
       method,
       url: url.toString(),
       userAgent,
       ip,
-      ...additionalContext
+      ...additionalContext,
     });
   }
 
   static logApiResponse(
-    event: any, 
-    statusCode: number, 
+    event: any,
+    statusCode: number,
     duration: number,
     additionalContext?: LogContext
   ) {
     const method = getMethod(event);
     const url = getRequestURL(event);
-    
+
     this.http(`${method} ${url.pathname} - ${statusCode} (${duration}ms)`, {
       method,
       url: url.toString(),
       statusCode,
       duration,
-      ...additionalContext
+      ...additionalContext,
     });
   }
 
@@ -120,15 +125,15 @@ export class Logger {
   ) {
     const method = getMethod(event);
     const url = getRequestURL(event);
-    const userAgent = getHeader(event, 'user-agent');
+    const userAgent = getHeader(event, "user-agent");
     const ip = getClientIP(event);
-    
+
     this.error(`API Error: ${method} ${url.pathname}`, error, {
       method,
       url: url.toString(),
       userAgent,
       ip,
-      ...additionalContext
+      ...additionalContext,
     });
   }
 }
