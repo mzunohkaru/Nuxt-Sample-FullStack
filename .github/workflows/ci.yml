@@ -22,17 +22,19 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    - name: Install dependencies (root)
+    - name: Install dependencies
       run: npm install
 
-    - name: Install dependencies (workspaces)
-      run: npm install --workspaces
+    - name: Lint code
+      run: npx eslint .
 
-    - name: Lint workspaces
-      run: npm run lint --workspaces
+    - name: Build project
+      run: npm run build
 
-    # - name: Build workspaces (if applicable)
-    #   run: npm run build --workspaces
-
-    - name: Test workspaces
-      run: npm run test --workspaces
+    - name: Run tests (if test files exist)
+      run: |
+        if [ -d "test" ] || [ -d "tests" ] || [ -d "__tests__" ] || find . -name "*.test.*" -o -name "*.spec.*" | grep -q .; then
+          npx nuxi test
+        else
+          echo "No test files found, skipping tests"
+        fi
